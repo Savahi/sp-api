@@ -1,0 +1,15 @@
+{
+	"version":"0.0.1",
+	"list":[ 
+		{
+			"id": "login",
+			"name": "Log in",
+			"description": "Provides user authorization by opening a session. Input: \"user\", \"pass\". Returns session id (\"sess_id\") to be used in the future requests if succeeds and non-empty \"error\" if fails."
+		},
+		{
+			"id": "logout", 	
+			"name": "Log out",
+			"description": "Finishes a session. Input: \"user\", \"pass\". Returns empty \"error\" value if succeeds."
+		}
+	]
+}

@@ -1,0 +1,92 @@
+.container {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0px;
+	border: 1px solid #dfdfdf;
+	border-radius: 8px;
+	padding: 4px 4px 4px 14px;
+}
+
+.loggedInAs {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0px;
+}
+
+.requestDialogContainer {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0px;
+}
+
+.requestDialogContainer::after {
+	content: ""; clear: both; display: table;
+}
+
+.requestDialogRequestContainer {
+	float: left;
+	box-sizing: border-box;
+	width: 40%;
+	margin: 0px;
+	padding: 10px;
+}
+
+.requestDialogRequestContainer div {
+	font-size:90%;
+}
+
+.requestDialogResponseContainer {
+	float: left;
+	box-sizing: border-box;
+	width: 40%;
+	margin: 0px;
+	padding: 10px;
+}
+
+.requestDialogResponseContainer div {
+	font-size:90%;
+}
+
+.normal {
+	background-color:#bfefbf;
+}
+
+.warning {
+	background-color:#efbfbf;
+}
+
+.requestDialogButtonsContainer {
+	float: left;
+	box-sizing: border-box;
+	width: 20%;
+	margin: 0px;
+	padding: 4px;
+}
+
+.requestDialogContainer button {
+	max-width: 100%;
+	padding: 8px;
+	border: 1px solid #dfdfdf;
+	border-radius: 4px;
+	background-color: #efefef;
+	cursor:pointer;
+}
+
+.requestDialogContainer textarea {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0px; 
+	padding: 0px;
+	font-size: 100%;
+}
+
+.requestDialogRequestMessage {
+	box-sizing: border-box;
+	width: 100%;
+	margin: 8px 0px 0px 0px; 
+	padding: 8px;
+	border-radius: 8px;
+	color: #2f2f2f;
+	background-color:#dfdfdf;
+	font-size: 100%;
+}
