@@ -5,13 +5,33 @@
 	border: 1px solid #dfdfdf;
 	border-radius: 8px;
 	padding: 4px 4px 4px 14px;
+	background-color:#f7f7f7;
 }
 
 .loggedInAs {
 	box-sizing: border-box;
 	width: 100%;
 	margin: 0px;
+	font-size:90%;
 }
+
+.loggedInAs::after {
+	content: ""; clear: both; display: table;
+}
+
+
+.loggedInAs div {
+	float: left;
+	color: #2f2f2f;
+	padding: 4px;
+}
+
+.loggedInAs div span {
+	color: #2f2f2f;
+	border: 1px solid #bfbfbf;
+	padding: 2px;
+}
+
 
 .requestDialogContainer {
 	box-sizing: border-box;
@@ -26,25 +46,25 @@
 .requestDialogRequestContainer {
 	float: left;
 	box-sizing: border-box;
-	width: 40%;
+	width: 30%;
 	margin: 0px;
 	padding: 10px;
 }
 
 .requestDialogRequestContainer div {
-	font-size:90%;
+	font-size:80%;
 }
 
 .requestDialogResponseContainer {
 	float: left;
 	box-sizing: border-box;
-	width: 40%;
+	width: 50%;
 	margin: 0px;
 	padding: 10px;
 }
 
 .requestDialogResponseContainer div {
-	font-size:90%;
+	font-size:80%;
 }
 
 .normal {
@@ -76,7 +96,8 @@
 	box-sizing: border-box;
 	width: 100%;
 	margin: 0px; 
-	padding: 0px;
+	padding: 4px;
+	border-radius:4px;
 	font-size: 100%;
 }
 

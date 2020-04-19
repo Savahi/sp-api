@@ -91,11 +91,11 @@ void error_message( const std::string &errmsg ) {
 	static const char _http_ok_json_header[] = "HTTP/1.1 200 OK\r\nContent-Type:application/json\r\n\r\n";
 	static const char _invalid_request_json[] = "{\"error\":\"Invalid request\"}";
 	static const char _error_json[] = "{\"error\":\"An error occured...\"}";
-	static const char _http_logged_in_json_template[] = "HTTP/1.1 200 OK\r\nContent-Type:text/json\r\n\r\n{\"error\":\"\",\"sess_id\":\"%s\"}";
-	static const char _http_logged_out_json_message[] = "HTTP/1.1 200 OK\r\nContent-Type:text/json\r\n\r\n{\"error\":\"\",\"sess_id\":\"\"}";
+	static const char _http_logged_in_json_template[] = "HTTP/1.1 200 OK\r\nContent-Type:text/json\r\n\r\n{\"error\":\"\",\"sess_id\":\"%s\",\"user\":\"%s\"}";
+	static const char _http_logged_out_json_message[] = "HTTP/1.1 200 OK\r\nContent-Type:text/json\r\n\r\n{\"error\":\"\",\"sess_id\":\"\",\"user\":\"\"}";
+	static const char _http_log_out_failed_json_message[] = "HTTP/1.1 200 OK\r\nContent-Type:text/json\r\n\r\n{\"error\":\"Failed to log out. Not authorized?\"}";
 	static const char _http_login_error_json_message[] = "HTTP/1.1 200 OK\r\nContent-Type:application/json\r\n\r\n{\"error\":\"Invalid login or password\",\"sess_id\":\"\"}";
 	static const char _http_auth_error_json_message[] = "HTTP/1.1 200 OK\r\nContent-Length:26\r\nContent-Type:application/json\r\n\r\n{\"error\":\"Not authorized\"}";
-
 
 	static const int _http_header_buf_size = sizeof(_http_header_template) + MIME_BUF_SIZE + 100; 
 
@@ -344,8 +344,8 @@ static int server( void )
 			if( strcmp( id, "login" ) == 0 ) { 	// A login try ? 
 				char *auth_sess_id = auth_do(user, pass, _users_and_passwords);
 				if( auth_sess_id != nullptr ) { 	// Login try ok - sending sess_id 	
-					static char buf[ sizeof(_http_logged_in_json_template) + AUTH_SESS_ID_BUF_SIZE + 1 ];
-					sprintf( buf, _http_logged_in_json_template, auth_sess_id );
+					static char buf[ sizeof(_http_logged_in_json_template) + AUTH_SESS_ID_BUF_SIZE + AUTH_USER_NAME_BUF_SIZE + 1 ];
+					sprintf( buf, _http_logged_in_json_template, auth_sess_id, user );
 					send(client_socket, buf, strlen(buf), 0);
 				} else { 	// Login try failed - sending 0 bytes
 					send(client_socket, _http_login_error_json_message, strlen(_http_login_error_json_message), 0);
@@ -354,18 +354,32 @@ static int server( void )
 				continue;
 			}
 			if( strcmp( id, "logout" ) == 0 ) { 	// A logout try ? 
-				auth_logout(user, sess_id);
-				send(client_socket, _http_logged_out_json_message, strlen(_http_logged_out_json_message), 0);
+				if( auth_logout(user, sess_id) ) {
+					send(client_socket, _http_logged_out_json_message, strlen(_http_logged_out_json_message), 0);
+				} else {
+					send(client_socket, _http_log_out_failed_json_message, strlen(_http_log_out_failed_json_message), 0);
+				}
 				closesocket(client_socket);
 				continue;
 			}
-			bool confirmed = auth_confirm(user, sess_id);
-			if( !confirmed ) {
+
+			// Confirming a valid user
+			char *user_ptr = nullptr;
+			if( strlen(user) > 0 && strlen(pass) > 0 ) { 	// If user and password has been received...
+				if( auth_check_user_and_password( user, pass, _users_and_passwords ) ) {
+					user_ptr = user;
+				}
+			} else if( strlen(sess_id) > 0 ) { 	// If a user and a session id has been reveived...
+				if( auth_confirm(user, sess_id) ) {
+					user_ptr = auth_get_user_name();
+				}
+			}
+			if( user_ptr == nullptr ) {
 				send(client_socket, _http_auth_error_json_message, strlen(_http_auth_error_json_message), 0);
 				closesocket(client_socket);
 				continue;
 			}
-			requestSpider( user, post, &response_header, &response_body, &free_response_body );
+			requestSpider( user_ptr, post, &response_header, &response_body, &free_response_body );
 		}
 
 		result = send(client_socket, response_header, strlen(response_header), 0);

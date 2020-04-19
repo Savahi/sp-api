@@ -5,13 +5,16 @@ class AppAPI extends React.Component {
 	
 	constructor(props) {
 		super(props);
-		this.state = { itemChosenInAPIList: { id:null, name:null, description:null, url:null } };
+		this.state = { 
+			itemChosenInAPIList: { id:null, title:'Not chosen', description:null, sample_request:null },
+		};
 
 		this.listItemChosen = this.listItemChosen.bind(this);
 	}
 
-	listItemChosen(e, id, name, description) {
-		this.setState( { itemChosenInAPIList: { id:id, name:name, description:description, url:'/something' } } );
+	listItemChosen(e, id, title, description, sample_request) {
+		this.setState( { itemChosenInAPIList: { id:id, title:title, description:description, sample_request:sample_request } } );
+		this.props.updateRequestText( sample_request );
 	}
 
 	render() {
@@ -21,11 +24,17 @@ class AppAPI extends React.Component {
 					<APIList onListItemChosen={this.listItemChosen} />
 				</div>
 				<div className={styles.APIItem}>
-					<div className={styles.APIItemName}>
-						{this.state.itemChosenInAPIList.name}<br/>({this.state.itemChosenInAPIList.id})
+					<div className={styles.APIItemId}>
+						{this.state.itemChosenInAPIList.id}
+					</div>
+					<div className={styles.APIItemTitle}>
+						{this.state.itemChosenInAPIList.title}
 					</div>
 					<div className={styles.APIItemDescription}>
 						{this.state.itemChosenInAPIList.description}
+					</div>
+					<div className={styles.APIItemSampleRequest}>
+						{this.state.itemChosenInAPIList.sample_request}
 					</div>
 				</div>
 			</div>
@@ -48,13 +57,19 @@ class APIList extends React.Component {
 	componentDidMount() {
 		fetch("/api_list")
 			.then( response => response.json() )
-			.then(  data  => this.setState( { error: false, isLoaded: true, data: data } ) )
-			.catch( error => this.setState( { error:true, errorMessage: 'Error loading the API list!', isLoaded:true } ) ); 
+			.then( data => { 
+				this.setState( { error: false, isLoaded: true, data: data } ); 
+				if( data.list.length > 0 ) {
+					let item = data.list[0];
+					this.props.onListItemChosen(null, item.id, item.title, item.description, JSON.stringify(item.sample_request));
+				}
+			} )
+			.catch( e => { this.setState( { error:true, errorMessage: 'Error loading the API list!', isLoaded:true } ); } ); 
 	}
 
 	render() {
     	if (this.state.error) {
-			return <div>Error loading API calls list/*:{error.message}*/</div>;
+			return <div>Error loading API calls list</div>;
 		} 
 		else if ( !this.state.isLoaded ) {
 			return <div>Please wait while loading API calls list...</div>;
@@ -64,8 +79,9 @@ class APIList extends React.Component {
 				<div>
 					{ 
 					this.state.data.list.map( item => (
-						<div key={item.id} className={styles.APIListItem} onClick={ (e) => this.props.onListItemChosen(e, item.id, item.name, item.description) }>
-							{item.name} :: {item.id}
+						<div key={item.id} className={styles.APIListItem} onClick={ (e) => 
+							this.props.onListItemChosen(e, item.id, item.title, item.description, JSON.stringify(item.sample_request)) }>
+							<span className={styles.APIListItemId}>{item.id}</span> :: {item.title}
 						</div> ) ) 	
 					}
 				</div>

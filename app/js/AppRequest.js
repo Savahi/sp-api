@@ -6,11 +6,11 @@ class AppRequest extends React.Component {
 	constructor(props) {
 		super(props);
 		this.state = { 
-			loggedInAs: { userName:null, sessId:null },
+			//loggedInAs: { user:null, sessId:null },
 			showRequestMessage: false,
 			requestMessage: '',
 			requestMessageClass: 'normal',
-			response: 'No requests made yet...'
+			responseText: ''
 		};
 		this.makeRequest = this.makeRequest.bind(this);
 	}
@@ -29,17 +29,35 @@ class AppRequest extends React.Component {
     	};
 		fetch("/api", requestOptions)
 			.then( response => response.json() )
-			.then(  data => this.setState( { showRequestMessage:false, response: JSON.stringify(data) } ) )
-			.catch( error => this.setState( { showRequestMessage:true, requestMessage:'Error making a request...', response: '' } ) ); 
+			.then(  data => { 
+				let id = null; // Trying to retrieve id from the request made					
+				try {
+					let o = JSON.parse( this.props.requestText );
+					if( 'id' in o ) {
+						id = o.id;
+					}
+				} catch(e) {;}									
+				let separator = '--------\n';
+				let title = (id !== null && id.length > 0) ? `${separator}[${id}]\n` : `${separator}`;				
+				this.setState( { showRequestMessage:false, responseText: title + JSON.stringify(data) + '\n' + this.state.responseText } ); 
+				if( 'user' in data && 'sess_id' in data ) { 	// Just logged in?
+					this.props.updateLoggedInAs( data.user, data.sess_id );
+				}
+			} )
+			.catch( e => { 
+				this.setState( { showRequestMessage:true, requestMessage:'Error making a request...' } ) 
+			} ); 
 	}
 
 	render() {
-		let loggedInAs = this.state.loggedInAs.userName === null ? '[ You are not logged in... ]' : 
-			`<br/>User: ${this.state.loggedInAs.userName}<br/>Session Id: ${this.state.loggedInAs.userName}`;
+		let user = this.props.loggedInAs.user === null ? 'Not authorized' : `${this.props.loggedInAs.user}`
+		let sessId = this.props.loggedInAs.sessId === null ? 'Not authorized' : `${this.props.loggedInAs.sessId}`;
 		return (
 			<div className={styles.container}>
 				<div className={styles.loggedInAs}>
-					<b>Logged in as</b>: { loggedInAs }
+					<div><b>Log in info</b>:</div>
+					<div>User:&nbsp;<span>{user}</span></div>
+					<div>Session&nbsp;Id:&nbsp;<span>{sessId}</span></div>
 				</div>
 				<div className={styles.requestDialogContainer}>
 					<div className={styles.requestDialogButtonsContainer}>
@@ -48,13 +66,13 @@ class AppRequest extends React.Component {
 					</div>
 					<div className={styles.requestDialogRequestContainer}>	
 						<b>Request</b><br/>
-						<textarea rows="4" id='request'></textarea>
+						<textarea rows="5" id='request' value={this.props.requestText} onChange={this.props.requestTextareaChanged}></textarea>
 						{ this.state.showRequestMessage ? 
 							(<div className={styles.requestDialogRequestMessage}>{this.state.requestMessage}</div>) : null }
 					</div>
 					<div className={styles.requestDialogResponseContainer}>
 						<b>Response</b><br/>
-						<textarea rows="4" id='response' value={this.state.response}></textarea>
+						<textarea rows="5" id='response' value={this.state.responseText}></textarea>
 					</div>
 				</div>
 			</div>

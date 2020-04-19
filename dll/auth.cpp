@@ -86,8 +86,8 @@
 	}
 
 
-	static int auth_delete(char *sess_id) {
-		int r = 0;
+	static int auth_delete(char *user, char *sess_id) {
+		int r = -1;
 		fstream f;
 		_sess_id = nullptr;
 		_sess_user_name = nullptr;
@@ -95,17 +95,21 @@
 		int status = read_sessions(f);
 		if (status >= 0) {
 			for (int i = 0; i < _sess_buf_capacity; i++) {
-				bool condition = strncmp( _sess_buf[i].sess_id, sess_id, strlen(sess_id) ) == 0; 	// Reauth found
-				if ( condition ) {
-					strcpy(_sess_buf[i].sess_id, "0");
-					_sess_buf[i].sess_time = 0;
-					try {
-						f.write((char*)&_sess_buf[0], sizeof(_sess_buf));
-					} catch(...) {
-						r = -1;
-					}
-					break;
+				if( strncmp( _sess_buf[i].sess_user_name, user, strlen(user) ) != 0 ) {
+					continue; 
 				}
+				if( strncmp( _sess_buf[i].sess_id, sess_id, strlen(sess_id) ) != 0 ) {
+					continue;
+				}
+				strcpy(_sess_buf[i].sess_id, "0");
+				_sess_buf[i].sess_time = 0;
+				try {
+					f.write((char*)&_sess_buf[0], sizeof(_sess_buf));
+					r = 0;
+				} catch(...) {
+					r = -2;
+				}
+				break;
 			}
 			f.close();
 		}
@@ -195,7 +199,7 @@
 
 
 	bool auth_logout(char *user, char *sess_id) {
-		return ( auth_delete(sess_id) >= 0);
+		return (auth_delete(user, sess_id) >= 0);
 	}
 
 
@@ -203,10 +207,8 @@
 		return ( auth_confirm_and_update(user, sess_id, b_update_session) >= 0 );
 	}
 
-
-	char *auth_do( char *user, char *pass, char *users_and_passwords[] ) {
-		char *r = nullptr;
-		
+	
+	bool auth_check_user_and_password( char *user, char *pass, char *users_and_passwords[] ) {
 		bool pass_ok = false;
 		for( int i = 0 ; users_and_passwords[i] != nullptr ; i+=2 ) {
 			if( !( strcmp(users_and_passwords[i], user ) == 0) ) {
@@ -221,6 +223,14 @@
 			pass_ok = true;
 			break;
 		}		
+		return pass_ok;
+	}
+
+
+	char *auth_do( char *user, char *pass, char *users_and_passwords[] ) {
+		char *r = nullptr;
+		
+		bool pass_ok = 	auth_check_user_and_password( user, pass, users_and_passwords );
 		if( pass_ok ) {
 			// Calculating and storing session id
 			stringstream ss;
