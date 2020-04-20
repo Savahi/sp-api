@@ -6,7 +6,6 @@
 #include <filesystem>
 #include <string.h>
 #include "auth.h"
-#include "sha2.h"
 
 	using namespace std;
 	
@@ -36,6 +35,27 @@
 	static Sess _sess_buf[_sess_buf_capacity];
 
 
+	static const char sid_valid_chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXWZ0123456789!@#$%^&*";
+	static const int sid_valid_chars_num = sizeof(sid_valid_chars);
+
+	void generate_session_id( char *user, char *sess_id, int sess_id_len ) 
+	{
+		unsigned int user_sum = 0;
+		for( int i = 0 ; i < strlen(user) ; i++ ) {
+			int n = static_cast<int>(user[i]);
+			user_sum += n + i+1;
+		}
+		unsigned long int seed = timeSinceEpochMillisec() - user_sum*1000;
+	    std::srand(seed);
+
+		for( int i = 0 ; i < sess_id_len ; i++ ) {
+	    	int index = std::rand() % sid_valid_chars_num;
+			sess_id[i] = sid_valid_chars[index];
+		}
+		sess_id[sess_id_len] = '\x0';
+	}	
+
+
 	char *auth_get_sess_id( void ) {
 		return _sess_id;
 	}
@@ -53,9 +73,8 @@
 		}
 	}
 
-
 	static int auth_create(const char *sess_id, char *sess_user_name) {
-		int r = 0;
+		int r = AUTH_ERROR_TOO_MANY_SESSIONS;
 		fstream f;
 		_sess_id = nullptr;
 		_sess_user_name = nullptr;
@@ -63,22 +82,33 @@
 		int status = read_sessions(f);
 		if (status >= 0) {
 			uint64_t now = timeSinceEpochMillisec();
+			int available_index = -1;
 			for (int i = 0; i < _sess_buf_capacity; i++) {
-				bool c1 = now - _sess_buf[i].sess_time >= _sess_inactivity; 	// An old one
-				bool c2 = strncmp( _sess_buf[i].sess_id, sess_id, strlen(sess_id) ) == 0; 	// Reauth found
-				if ( c1 || c2 ) {
-					strcpy(_sess_buf[i].sess_id, sess_id);
-					strcpy(_sess_buf[i].sess_user_name, sess_user_name);
-					_sess_buf[i].sess_time = now;
-					try {
-						f.write((char*)&_sess_buf[0], sizeof(_sess_buf));
-					} catch(...) {
-						r = -1;
-					}
-					_sess_id = _sess_buf[i].sess_id;
-					_sess_user_name = _sess_buf[i].sess_user_name;
+				if( strncmp( _sess_buf[i].sess_user_name, sess_user_name, strlen(sess_user_name) ) == 0 ) { // Reauth found
+					available_index = i;
 					break;
 				}
+			}
+			if( available_index == -1 ) {
+				for (int i = 0; i < _sess_buf_capacity; i++) {
+					if( (now - _sess_buf[i].sess_time) >= _sess_inactivity ) { // An old session found
+						available_index = i;
+						break;
+					}
+				}
+			}
+			if( available_index != -1 ) {
+				strcpy(_sess_buf[ available_index ].sess_id, sess_id);
+				strcpy(_sess_buf[ available_index ].sess_user_name, sess_user_name);
+				_sess_buf[ available_index ].sess_time = now;
+				try {
+					f.write( (char*)&_sess_buf[0], sizeof(_sess_buf) );
+				} catch(...) {
+					r = AUTH_ERROR_FAILED_TO_WRITE_SESSION;
+				}
+				_sess_id = _sess_buf[ available_index ].sess_id;
+				_sess_user_name = _sess_buf[ available_index ].sess_user_name;
+				r = 0;
 			}
 			f.close();
 		}
@@ -95,10 +125,10 @@
 		int status = read_sessions(f);
 		if (status >= 0) {
 			for (int i = 0; i < _sess_buf_capacity; i++) {
-				if( strncmp( _sess_buf[i].sess_user_name, user, strlen(user) ) != 0 ) {
+				if( strncmp( _sess_buf[i].sess_user_name, user, strlen(_sess_buf[i].sess_user_name) ) != 0 ) {
 					continue; 
 				}
-				if( strncmp( _sess_buf[i].sess_id, sess_id, strlen(sess_id) ) != 0 ) {
+				if( strncmp( _sess_buf[i].sess_id, sess_id, strlen(_sess_buf[i].sess_id) ) != 0 ) {
 					continue;
 				}
 				strcpy(_sess_buf[i].sess_id, "0");
@@ -133,7 +163,7 @@
 		if (status == sizeof(_sess_buf)) { 		// Might be as well simply "if( status > 0)"
 //cerr << "SESSION READ" << endl;
 			for (int i = 0; i < _sess_buf_capacity; i++) {
-				if( strncmp( _sess_buf[i].sess_id, sess_id, strlen(sess_id) ) == 0 ) { 
+				if( strncmp( _sess_buf[i].sess_id, sess_id, strlen(_sess_buf[i].sess_id) ) == 0 ) { 
 //cerr << "CMP OK" << endl;
 					uint64_t now = timeSinceEpochMillisec();
 //cerr << "TIME SINCE: " << (now - _sess_buf[i].sess_time) << endl;
@@ -227,20 +257,22 @@
 	}
 
 
-	char *auth_do( char *user, char *pass, char *users_and_passwords[] ) {
+	char *auth_do( char *user, char *pass, char *users_and_passwords[], int *error_code ) {
 		char *r = nullptr;
 		
 		bool pass_ok = 	auth_check_user_and_password( user, pass, users_and_passwords );
 		if( pass_ok ) {
-			// Calculating and storing session id
-			stringstream ss;
-			ss << timeSinceEpochMillisec << user;
-			cerr << ss.str() << endl;
-			string sha2_buf = sha2(ss.str());
-			int status = auth_create( sha2_buf.c_str(), user );
+			char buf[AUTH_SESS_ID_BUF_SIZE+1];
+			generate_session_id( user, buf, 40 );
+cerr << "auth_do: session id generated: " << buf << "\n";
+			int status = auth_create( buf, user );
 			if (status >= 0) {
 				r = _sess_id;
+			} else if( error_code != nullptr ) {
+				*error_code = status; 	// Too many sessions opened or failed to write session file
 			}
+		} else if( error_code != nullptr ) {
+			*error_code = AUTH_ERROR_INVALID_LOGIN_OR_PASSWORD; // Invalid login or/and password
 		}
 		return r;
 	}

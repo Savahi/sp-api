@@ -88,14 +88,23 @@ void error_message( const std::string &errmsg ) {
 	static const char _http_not_found_message[] = "HTTP/1.1 404 Not Found\r\nVersion: HTTP/1.1\r\nContent-Length:0\r\n\r\n";
 	static const char _http_failed_to_serve_message[] = "HTTP/1.1 501 Internal Server Error\r\nVersion: HTTP/1.1\r\nContent-Length:0\r\n\r\n";
 
-	static const char _http_ok_json_header[] = "HTTP/1.1 200 OK\r\nContent-Type:application/json\r\n\r\n";
+	static const char _http_ok_json_header[] = "HTTP/1.1 200 OK\r\nContent-Type:application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n";
 	static const char _invalid_request_json[] = "{\"error\":\"Invalid request\"}";
 	static const char _error_json[] = "{\"error\":\"An error occured...\"}";
-	static const char _http_logged_in_json_template[] = "HTTP/1.1 200 OK\r\nContent-Type:text/json\r\n\r\n{\"error\":\"\",\"sess_id\":\"%s\",\"user\":\"%s\"}";
-	static const char _http_logged_out_json_message[] = "HTTP/1.1 200 OK\r\nContent-Type:text/json\r\n\r\n{\"error\":\"\",\"sess_id\":\"\",\"user\":\"\"}";
-	static const char _http_log_out_failed_json_message[] = "HTTP/1.1 200 OK\r\nContent-Type:text/json\r\n\r\n{\"error\":\"Failed to log out. Not authorized?\"}";
-	static const char _http_login_error_json_message[] = "HTTP/1.1 200 OK\r\nContent-Type:application/json\r\n\r\n{\"error\":\"Invalid login or password\",\"sess_id\":\"\"}";
-	static const char _http_auth_error_json_message[] = "HTTP/1.1 200 OK\r\nContent-Length:26\r\nContent-Type:application/json\r\n\r\n{\"error\":\"Not authorized\"}";
+	static const char _http_logged_in_json_template[] = 
+		"HTTP/1.1 200 OK\r\nContent-Type:text/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"error\":\"\",\"sess_id\":\"%s\",\"user\":\"%s\"}";
+	static const char _http_login_error_json_message[] = 
+		"HTTP/1.1 200 OK\r\nContent-Type:application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"error\":\"Invalid login or password\",\"sess_id\":\"\"}";
+	static const char _http_logged_out_json_message[] = 
+		"HTTP/1.1 200 OK\r\nContent-Type:text/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"error\":\"\",\"sess_id\":\"\",\"user\":\"\"}";
+	static const char _http_log_out_failed_json_message[] = 
+		"HTTP/1.1 200 OK\r\nContent-Type:text/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"error\":\"Failed to log out. Not authorized?\"}";
+	static const char _http_auth_error_json_message[] = 
+		"HTTP/1.1 200 OK\r\nContent-Length:26\r\nContent-Type:application/json\r\nAccess-Control-Allow-Origin: *\r\n\r\n{\"error\":\"Not authorized\"}";
+
+	static const char _http_ok_options_header[] = 
+		"HTTP/1.1 200 OK\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: POST, GET, OPTIONS\r\n"
+		"Access-Control-Allow-Headers: Content-Type\r\n\r\n";
 
 	static const int _http_header_buf_size = sizeof(_http_header_template) + MIME_BUF_SIZE + 100; 
 
@@ -276,13 +285,14 @@ static int server( void )
 			continue;
 		}
 
-		_socket_request_buf[result] = '\0';
+		_socket_request_buf[result] = '\x0';
 		error_message( "server [request]:\n" + std::string(_socket_request_buf) + "\nlength=" + std::to_string( result ) );
 
 		char uri[_uri_buf_size+1];
 		char *post;
-		char *get;
-		int uri_status = getUriToServe(_socket_request_buf, uri, _uri_buf_size, &get, &post);
+		bool get;
+		bool options;
+		int uri_status = getUriToServe(_socket_request_buf, uri, _uri_buf_size, &get, &post, &options);
 
 		if (uri_status != 0) { 	// Failed to parse uri - closing socket...
 			closesocket(client_socket);
@@ -297,6 +307,13 @@ static int server( void )
 			continue;
 		}				
 
+		if( options ) { 	// An OPTIONS request - allowing all
+cerr << "server: sending OPTIONS:\n" << _http_ok_options_header;
+			send(client_socket, _http_ok_options_header, strlen(_http_ok_options_header), 0);
+			closesocket(client_socket);
+			continue;
+		}
+
 		const char *response_header = nullptr;
 		const char *response_body = nullptr;
 		bool free_response_body = false;
@@ -304,7 +321,7 @@ static int server( void )
 		if( strcmp( uri, "/api_list" ) == 0 ) { 	// A GET request to serve the list of API function
 			requestSpider( nullptr, nullptr, &response_header, &response_body, &free_response_body );
 		}
-		else if( post == nullptr ) 
+		else if( get ) 
 		{ 	// A GET request from browser
 			if( strcmp( uri, "/" ) == 0 || strcmp(uri, "/index") == 0 ) {
 				strcpy( uri, "/index.html" );

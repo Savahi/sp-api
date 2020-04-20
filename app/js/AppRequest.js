@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import styles from './../css/apprequest.css'; 
+import Settings from './Settings';
 
 class AppRequest extends React.Component {
 	
@@ -22,12 +23,16 @@ class AppRequest extends React.Component {
 			requestMessageClass: 'normal'
     	}));
 
-		const requestOptions = {
+		const requestHeaders = {
         	method: 'POST',
-        	headers: { 'Content-Type': 'application/json' },
+        	headers: { 'Content-Type': 'application/json', 'Origin': Settings.apiServerURL+'/' },
         	body: document.getElementById('request').value
     	};
-		fetch("/api", requestOptions)
+		let url = '/api';
+		if( Settings.apiServerURL.length > 0 ) {
+			url = Settings.apiServerURL + url;
+		} 
+		fetch(url, requestHeaders)
 			.then( response => response.json() )
 			.then(  data => { 
 				let id = null; // Trying to retrieve id from the request made					
@@ -60,7 +65,7 @@ class AppRequest extends React.Component {
 					<div>Session&nbsp;Id:&nbsp;<span>{sessId}</span></div>
 				</div>
 				<div className={styles.requestDialogContainer}>
-					<div className={styles.requestDialogButtonsContainer}>
+					<div className={styles.requestDialogSendingControlsContainer}>
 						<br/>
 						<button onClick={this.makeRequest}>Make Request</button>
 					</div>
@@ -72,7 +77,7 @@ class AppRequest extends React.Component {
 					</div>
 					<div className={styles.requestDialogResponseContainer}>
 						<b>Response</b><br/>
-						<textarea rows="5" id='response' value={this.state.responseText}></textarea>
+						<textarea rows="5" id='response' value={this.state.responseText} readOnly></textarea>
 					</div>
 				</div>
 			</div>

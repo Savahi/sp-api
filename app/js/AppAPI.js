@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import styles from './../css/appapi.css'; 
+import Settings from './Settings';
 
 class AppAPI extends React.Component {
 	
@@ -55,8 +56,12 @@ class APIList extends React.Component {
 	}
 
 	componentDidMount() {
-		fetch("/api_list")
-			.then( response => response.json() )
+		let url = '/api_list';
+		if( Settings.apiServerURL.length > 0 ) {
+			url = Settings.apiServerURL + url;
+		} 
+		fetch( url, { Origin: Settings.apiServerURL+'/' } )
+			.then( response => { console.log(response); return response.json(); } )
 			.then( data => { 
 				this.setState( { error: false, isLoaded: true, data: data } ); 
 				if( data.list.length > 0 ) {

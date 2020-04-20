@@ -75,7 +75,7 @@
 	background-color:#efbfbf;
 }
 
-.requestDialogButtonsContainer {
+.requestDialogSendingControlsContainer {
 	float: left;
 	box-sizing: border-box;
 	width: 20%;

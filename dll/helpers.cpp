@@ -46,27 +46,32 @@
 	}
 
 
-	int getUriToServe(char *b, char *uri_buf, int uri_buf_size, char **get, char **post) {
-		int r = -1;
+	int getUriToServe(char *b, char *uri_buf, int uri_buf_size, bool *get, char **post, bool *options) {
 		int b_len = strlen(b);
 
-		*get = nullptr;
+		*get = false;
 		*post = nullptr;
-		// Searching for "GET" or "POST"
+		*options = false;
+
+		// Searching for "GET", "POST" or "OPTIONS"
 		int uri_index = -1;
-		for (int i = 0; i < b_len - 4; i++) {
-			if (tolower(b[i]) == 'g' && tolower(b[i + 1]) == 'e' && tolower(b[i + 2]) == 't') {
-				uri_index = i;
-				for (int j = i+3; j < b_len - 4; j++) {
-					if ( b[j] == '?' ) {
-						*get = &b[j + 1];
-						break;
-					}
-				}
+
+		int i = 0; 	// To skip leading spaces if exist...
+		for( ; i < b_len ; i++) {
+			if( b[i] != ' ' ) {
 				break;
 			}
+		}
+
+		if( i < b_len - 3 ) {	// Is it a GET?
+			if (tolower(b[i]) == 'g' && tolower(b[i + 1]) == 'e' && tolower(b[i + 2]) == 't') {
+				uri_index = i+3;
+				*get = true;
+			}
+		}
+		if( *get == false && i < b_len - 4 ) { 	// Is it a POST?
 			if (tolower(b[i]) == 'p' && tolower(b[i + 1]) == 'o' && tolower(b[i + 2]) == 's' && tolower(b[i + 3]) == 't') {
-				uri_index = i;
+				uri_index = i+4;
 				int post_index = -1;
 				for (int j = i+4; j < b_len - 4; j++) {
 					if (tolower(b[j]) == '\r' && tolower(b[j+1]) == '\n' && tolower(b[j+2]) == '\r' && tolower(b[j+3]) == '\n') {
@@ -78,39 +83,48 @@
 				if( post_index == -1 ) { 	// A POST request, but no post data...
 					return -1;
 				}
+			}
+		}
+		if( *get == false && *post == nullptr && i < b_len - 7 ) { 	// Is it an OPTIONS?
+			if (tolower(b[i]) == 'o' && tolower(b[i+1]) == 'p' && tolower(b[i+2]) == 't' && tolower(b[i+3]) == 'i' &&
+				tolower(b[i+4]) == 'o' && tolower(b[i+5]) == 'n' && tolower(b[i+6]) == 's' ) {
+				uri_index = i+7;
+				*options = true;
+			}
+	
+		}
+		if( uri_index == -1 ) {
+			return -1;
+		}
+
+		int first_path_index = -1;
+		int last_path_index = -1;
+		for (int j = uri_index; j < b_len - 1; j++) {
+			if (b[j] == ' ') {
+				continue;
+			}
+			if (b[j] == '/') {
+				first_path_index = j;
 				break;
 			}
 		}
-		if (uri_index != -1) { 	// If "GET" found...
-			int first_path_index = -1;
-			int last_path_index = -1;
-			for (int j = uri_index + 3; j < b_len - 1; j++) {
-				if (b[j] == ' ') {
+		if (first_path_index != -1) {
+			last_path_index = first_path_index;
+			for (int j = first_path_index + 1; j < b_len; j++) {
+				if (b[j] != ' ' && b[j] != '\r' && b[j] != '\n' && b[j] != '?') {
+					last_path_index++;
 					continue;
 				}
-				if (b[j] == '/') {
-					first_path_index = j;
-					break;
-				}
-			}
-			if (first_path_index != -1) {
-				last_path_index = first_path_index;
-				for (int j = first_path_index + 1; j < b_len; j++) {
-					if (b[j] != ' ' && b[j] != '\r' && b[j] != '\n' && b[j] != '?') {
-						last_path_index++;
-						continue;
-					}
-					break;
-				}
-			}
-			int path_len = (last_path_index - first_path_index + 1);
-			if (first_path_index != -1 && last_path_index != -1 && path_len <= uri_buf_size) {
-				strncpy_s(uri_buf, uri_buf_size, &b[first_path_index], path_len);
-				uri_buf[path_len] = '\x0';
-				r = 0;
+				break;
 			}
 		}
-		return r;
+		int path_len = (last_path_index - first_path_index + 1);
+		if (first_path_index != -1 && last_path_index != -1 && path_len <= uri_buf_size) {
+			strncpy_s(uri_buf, uri_buf_size, &b[first_path_index], path_len);
+			uri_buf[path_len] = '\x0';
+			return 0;
+		}
+		return -1;
 	}
 
 
