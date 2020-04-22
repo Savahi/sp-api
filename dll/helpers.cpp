@@ -98,31 +98,29 @@
 		}
 
 		int first_path_index = -1;
-		int last_path_index = -1;
-		for (int j = uri_index; j < b_len - 1; j++) {
-			if (b[j] == ' ') {
+		for (int i = uri_index; i < b_len - 1; i++) {
+			if (b[i] == ' ') {
 				continue;
 			}
-			if (b[j] == '/') {
-				first_path_index = j;
+			if (b[i] == '/') {
+				first_path_index = i;
 				break;
 			}
 		}
 		if (first_path_index != -1) {
-			last_path_index = first_path_index;
-			for (int j = first_path_index + 1; j < b_len; j++) {
-				if (b[j] != ' ' && b[j] != '\r' && b[j] != '\n' && b[j] != '?') {
-					last_path_index++;
+			int last_path_index = first_path_index + 1;
+			for ( ; last_path_index < b_len; last_path_index++) {
+				if (b[last_path_index] != ' ' && b[last_path_index] != '\r' && b[last_path_index] != '\n' && b[last_path_index] != '?') {
 					continue;
 				}
 				break;
 			}
-		}
-		int path_len = (last_path_index - first_path_index + 1);
-		if (first_path_index != -1 && last_path_index != -1 && path_len <= uri_buf_size) {
-			strncpy_s(uri_buf, uri_buf_size, &b[first_path_index], path_len);
-			uri_buf[path_len] = '\x0';
-			return 0;
+			int path_len = last_path_index - first_path_index;
+			if (first_path_index != -1 && last_path_index != -1 && path_len < uri_buf_size) {
+				strncpy_s(uri_buf, uri_buf_size, &b[first_path_index], path_len);
+				uri_buf[path_len] = '\x0';
+				return 0;
+			}
 		}
 		return -1;
 	}
@@ -168,7 +166,7 @@ static int findFirstIndexAfterSubstringEnds( char *b, int b_len, char *substring
 static void readJsonValueIntoString( char *b, int b_len, int start_index, char *string_buffer, int string_buffer_size ) {
 	int j = 0;
 
-	for( int i = start_index ; i < b_len && j < string_buffer_size-1 ; i++, j++ ) {
+	for( int i = start_index ; i < b_len && j < string_buffer_size ; i++, j++ ) {
 		if( b[i] == '"' ) {
 			break;
 		}

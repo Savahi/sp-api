@@ -1,21 +1,6 @@
-#include <string.h>
-#include <iostream>
-#include <sstream>
-#include <fstream>
-#include <string>
-#include <string.h>
+#include "server.h"
 #include "auth.h"
 #include "helpers.h"
-#include <thread>
-#define SERVER_DLL_EXPORT
-#include "WebServer.hpp"
-
-#define _WIN32_WINNT 0x501
-
-#include <WinSock2.h>
-#include <WS2tcpip.h>
-
-#pragma comment(lib, "Ws2_32.lib")
 
 using std::cerr;
 using std::endl;
@@ -73,6 +58,7 @@ void error_message( const std::string &errmsg ) {
 	sd.message = buf;
 	_callback(&sd);
 }
+
 
 	static char _html_source_root[] = "html\\";
 	static const int _html_source_dir_buf_size = _maxExePath + 1 + sizeof(_html_source_root);
@@ -184,7 +170,7 @@ static char *_allowed_uri[] = { "/", "/index.html", "/index_bundle.js", "/favico
 #define MAX_ID 100
 #define MAX_USER 100
 #define MAX_PASS 100
-#define MAX_SESS_ID AUTH_SESS_ID_BUF_SIZE
+#define MAX_SESS_ID AUTH_SESS_ID_LEN
 
 static int server( void )
 {
@@ -353,15 +339,15 @@ cerr << "server: sending OPTIONS:\n" << _http_ok_options_header;
 		else 	// Post != nullptr - an API entry is requested
 		{ 	
 			char id[ MAX_ID+1 ];
-			char user[ MAX_USER+1 ];
+			char user[ AUTH_USER_MAX_LEN+1 ];
 			char pass[ MAX_PASS+1 ];
-			char sess_id[ MAX_SESS_ID+1 ];
-			parseJSON(post, user, MAX_USER, pass, MAX_PASS, sess_id, MAX_SESS_ID, id, MAX_ID);				
+			char sess_id[ AUTH_SESS_ID_LEN+1 ];
+			parseJSON(post, user, AUTH_USER_MAX_LEN, pass, MAX_PASS, sess_id, AUTH_SESS_ID_LEN, id, MAX_ID);				
 
 			if( strcmp( id, "login" ) == 0 ) { 	// A login try ? 
 				char *auth_sess_id = auth_do(user, pass, _users_and_passwords);
 				if( auth_sess_id != nullptr ) { 	// Login try ok - sending sess_id 	
-					static char buf[ sizeof(_http_logged_in_json_template) + AUTH_SESS_ID_BUF_SIZE + AUTH_USER_NAME_BUF_SIZE + 1 ];
+					static char buf[ sizeof(_http_logged_in_json_template) + AUTH_SESS_ID_LEN + AUTH_USER_MAX_LEN + 1 ];
 					sprintf( buf, _http_logged_in_json_template, auth_sess_id, user );
 					send(client_socket, buf, strlen(buf), 0);
 				} else { 	// Login try failed - sending 0 bytes
@@ -388,7 +374,7 @@ cerr << "server: sending OPTIONS:\n" << _http_ok_options_header;
 				}
 			} else if( strlen(sess_id) > 0 ) { 	// If a user and a session id has been reveived...
 				if( auth_confirm(user, sess_id) ) {
-					user_ptr = auth_get_user_name();
+					user_ptr = auth_get_user();
 				}
 			}
 			if( user_ptr == nullptr ) {
