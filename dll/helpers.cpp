@@ -46,9 +46,8 @@
 	}
 
 
-	int getUriToServe(char *b, char *uri_buf, int uri_buf_size, bool *get, char **post, bool *options) {
-		int b_len = strlen(b);
-
+	int get_uri_to_serve(char *b, int b_len, char *uri_buf, int uri_buf_size, bool *get, char **post, bool *options) 
+	{
 		*get = false;
 		*post = nullptr;
 		*options = false;

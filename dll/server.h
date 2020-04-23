@@ -13,22 +13,48 @@
 #define SERVER_DLL_EXPORT
 #include "WebServer.hpp"
 
+#include "auth.h"
+#include "helpers.h"
+
 #define SRV_MAX_EXE_PATH 400
 #define SRV_HTML_ROOT_DIR "html\\"
 #define SRV_MAX_HTML_ROOT_PATH (SRV_MAX_EXE_PATH + 1 + sizeof(SRV_HTML_ROOT_DIR))
 
-class Response {
-	char *header;
-	char *body;
-	char *body_allocated;
+class ResponseWrapper {
+	public:
 
-	Response(): header(nullptr), body(nullptr), body_allocated(nullptr) {
+	const char *header;
+	const char *body;
+	char *body_allocated;
+	unsigned int body_len;
+
+	ResponseWrapper(): header(nullptr), body(nullptr), body_allocated(nullptr) {
 		;
 	}
 
-	~Response() {
+	~ResponseWrapper() {
 		if( body_allocated != nullptr ) {
 			delete [] body_allocated;
+		}
+	}
+};
+
+class ServerDataWrapper {
+	public:
+
+	ServerData sd;
+	
+	ServerDataWrapper() {
+		sd.user = nullptr;
+		sd.message = nullptr;
+		sd.sp_response_buf = nullptr;
+		sd.sp_free_response_buf = false;
+  		sd.sp_response_file = false;
+	}
+
+	~ServerDataWrapper() {
+		if( sd.sp_free_response_buf == true ) {
+			delete [] sd.sp_response_buf;
 		}
 	}
 };

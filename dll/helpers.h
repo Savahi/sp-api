@@ -6,7 +6,7 @@
 #define MIME_BUF_SIZE 80
 void mimeSetType(char *fn, char *mime_buf, int mime_buf_size);
 
-int getUriToServe(char *b, char *uri_buf, int uri_buf_size, bool *get, char **post, bool *options);
+int get_uri_to_serve(char *b, int b_len, char *uri_buf, int uri_buf_size, bool *get, char **post, bool *options);
 
 bool is_html_request( char *uri );
 
