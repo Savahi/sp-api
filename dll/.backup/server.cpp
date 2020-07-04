@@ -68,7 +68,7 @@ static int server( StartServerData *ssd, callback_ptr callback )
 
 	result = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (result != 0) {
-		error_message( "WSAStartup failed: ", std::to_string( result ) );
+		error_message( "WSAStartup failed: ", result );
         thread_manager_stop();
 		return result;
 	}

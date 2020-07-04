@@ -82,10 +82,11 @@ class ServerDataWrapper {
 
 static void readHtmlFileAndPrepareResponse( char *file_name, char *html_source_dir, bool is_browser_request, ResponseWrapper &response );
 
-static void requestSpider( callback_ptr _callback, char *post, ResponseWrapper &response, ServerDataWrapper &sdw );
+static void requestSpider( callback_ptr _callback, char *user, char *post, ResponseWrapper &response, ServerDataWrapper &sdw );
+
 
 void server_response( int client_socket, char *socket_request_buf, int socket_request_buf_size, 
-    char *html_source_dir, callback_ptr callback )
+    char *html_source_dir, char **users_and_passwords, callback_ptr callback )
 {
     char uri[_uri_buf_size+1];
     char *post;
@@ -116,7 +117,7 @@ void server_response( int client_socket, char *socket_request_buf, int socket_re
     ServerDataWrapper sdw;
 
     if( strcmp( uri, "/api_list" ) == 0 ) { 	// A GET request to serve the list of API function
-        requestSpider( callback, nullptr, response, sdw );
+        requestSpider( callback, nullptr, nullptr, response, sdw );
     }
     else if( get ) 
     { 	// A GET request from a browser
@@ -147,14 +148,55 @@ void server_response( int client_socket, char *socket_request_buf, int socket_re
     }
     else 	// Post != nullptr - an API entry is requested
     { 	
-        requestSpider( callback, post, response, sdw );
+        char id[ MAX_ID+1 ];
+        char user[ AUTH_USER_MAX_LEN+1 ];
+        char pass[ MAX_PASS+1 ];
+        char sess_id[ AUTH_SESS_ID_LEN+1 ];
+        parseJSON(post, user, AUTH_USER_MAX_LEN, pass, MAX_PASS, sess_id, AUTH_SESS_ID_LEN, id, MAX_ID);				
+
+        if( strcmp( id, "login" ) == 0 ) { 	// A login try ? 
+            char *auth_sess_id = auth_do(user, pass, users_and_passwords);
+            if( auth_sess_id != nullptr ) { 	// Login try ok - sending sess_id 	
+                static char buf[ sizeof(_http_logged_in_json_template) + AUTH_SESS_ID_LEN + AUTH_USER_MAX_LEN + 1 ];
+                sprintf( buf, _http_logged_in_json_template, auth_sess_id, user );
+                send(client_socket, buf, strlen(buf), 0);
+            } else { 	// Login try failed - sending 0 bytes
+                send(client_socket, _http_login_error_json_message, strlen(_http_login_error_json_message), 0);
+            }
+            return;
+        }
+        if( strcmp( id, "logout" ) == 0 ) { 	// A logout try ? 
+            if( auth_logout(user, sess_id) ) {
+                send(client_socket, _http_logged_out_json_message, strlen(_http_logged_out_json_message), 0);
+            } else {
+                send(client_socket, _http_log_out_failed_json_message, strlen(_http_log_out_failed_json_message), 0);
+            }
+            return;
+        }
+
+        // Confirming a valid user
+        char *user_ptr = nullptr;
+        if( strlen(user) > 0 && strlen(pass) > 0 ) { 	// If user and password has been received...
+            if( auth_check_user_and_password( user, pass, users_and_passwords ) ) {
+                user_ptr = user;
+            }
+        } else if( strlen(sess_id) > 0 ) { 	// If a user and a session id has been reveived...
+            if( auth_confirm(user, sess_id) ) {
+                user_ptr = auth_get_user();
+            }
+        }
+        if( user_ptr == nullptr ) {
+            send(client_socket, _http_auth_error_json_message, strlen(_http_auth_error_json_message), 0);
+            return;
+        }
+        requestSpider( callback, user_ptr, post, response, sdw );
     }
 
     int header_sending_result = send(client_socket, response.header, strlen(response.header), 0);
     if (header_sending_result == SOCKET_ERROR) { 	// If error...
-        error_message( "header send failed: ", WSAGetLastError() );
+        server_error_message( "header send failed: " + std::to_string( WSAGetLastError() ) );
     } else {
-        error_message( "**** server :\nresponse header sent:\n", response.header, "\n" );
+        server_error_message( std::string("**** server :\nresponse header sent:\n") + std::string(response.header) + std::string("\n") );
         const char *body_ptr = nullptr;
         if( response.body != nullptr ) {
             body_ptr = response.body;
@@ -165,19 +207,19 @@ void server_response( int client_socket, char *socket_request_buf, int socket_re
             // Sending the file to client...
             int body_sending_result = send(client_socket, body_ptr, response.body_len, 0);
             if (body_sending_result == SOCKET_ERROR) { 	// If error...
-                error_message( "send failed: ", WSAGetLastError() );
+                server_error_message( "send failed: " + std::to_string( WSAGetLastError() ) );
             } else {
-                error_message( "**** server:\nresponse body sent:\n", body_ptr, "\n" );
+                server_error_message("**** server:\nresponse body sent:\n" +std::string(body_ptr) + "\n" );
             }
         }
     }
 }
 
 
-static void requestSpider( callback_ptr callback, char *post, ResponseWrapper &response, ServerDataWrapper &sdw )
+static void requestSpider( callback_ptr callback, char *user, char *post, ResponseWrapper &response, ServerDataWrapper &sdw )
 {
     int callback_return; 	// 
-    sdw.sd.user = nullptr;
+    sdw.sd.user = user;
     if( post == nullptr ) {
         sdw.sd.message_id = SERVER_API_LIST;
     } else {			
@@ -193,7 +235,7 @@ static void requestSpider( callback_ptr callback, char *post, ResponseWrapper &r
         response.body_len = strlen(_invalid_request_json);
     } 
     else { 	// Ok
-        if( sdw.sd.sp_response_is_file ) {
+        if( sdw.sd.sp_response_file ) {
             readHtmlFileAndPrepareResponse( sdw.sd.sp_response_buf, nullptr, false, response );
             return;
         }
@@ -206,6 +248,7 @@ static void requestSpider( callback_ptr callback, char *post, ResponseWrapper &r
 
 static void readHtmlFileAndPrepareResponse( char *file_name, char *html_source_dir, bool is_browser_request, ResponseWrapper &response )
 {
+    // If none of the above - serving a file
     char file_path[ _html_file_path_buf_size ];
     
     if( html_source_dir != nullptr ) {
@@ -214,14 +257,14 @@ static void readHtmlFileAndPrepareResponse( char *file_name, char *html_source_d
         file_path[0] = '\x0';
     }
     strcat( file_path, file_name );
-    error_message( "Opening: " + std::string(file_path) );
+    server_error_message( "Opening: " + std::string(file_path) );
 
     enum class FileServingErr { ok, file_not_found, failed_to_serve };
     FileServingErr error = FileServingErr::failed_to_serve;
 
     std::ifstream fin(file_path, std::ios::in | std::ios::binary);
     if (fin) {
-        error_message( "Opened" );
+        server_error_message( "Opened" );
 
         // Reading http response body
         fin.seekg(0, std::ios::end);
@@ -275,3 +318,4 @@ static void readHtmlFileAndPrepareResponse( char *file_name, char *html_source_d
         } 
     }
 }
+

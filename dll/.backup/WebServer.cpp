@@ -13,6 +13,23 @@ char _callback_error_code;
 char _callback_response[RESPONSE_BUFFER+1];
 
 int callback ( ServerData *sd ) {
+
+    if( sd->message_id == SERVER_NOTIFICATION_MESSAGE ) { // Simply to inform SP about smth.
+        printf("********\n%s\n", sd->message);
+        return 0;
+    } else {
+        printf("********\nA MESSAGE FROM SERVER TO SP:\n");
+        printf("ID: %d\n", sd->message_id);
+        if( sd->user != nullptr ) {	
+            printf("USER: %s\n", sd->user);
+        } else {
+            printf("USER: nullptr\n");
+        }
+        if( sd->message != nullptr ) {	
+            printf("MESSAGE: %s\n", sd->message);
+        }
+    }
+
     _callback_error_code = -1;
     _callback_response[0] = '\x0';
     sd->sp_response_buf = _callback_response;
@@ -33,10 +50,6 @@ int callback ( ServerData *sd ) {
             }
             fin.close();
         }   
-    } else if( sd->message_id == SERVER_API_COMMAND ) {
-        strcpy( _callback_response, "{\"error\":\"\", \"response\":\"a response\"}" );
-        sd->sp_response_buf_size = strlen(_callback_response);
-        _callback_error_code = 0;
     }
     return _callback_error_code;
 }
@@ -48,11 +61,11 @@ int main (int argc, char** argv)
     HINSTANCE hServerDLL;
 
     Data.IP = "127.0.0.1";
-    Data.Port = "8080";
+    Data.Port = "8000";
     Data.ExePath = nullptr;
     Data.HtmlPath = "html\\";
 
-    hServerDLL = LoadLibrary ("serverapi");
+    hServerDLL = LoadLibrary ("server");
     if (hServerDLL != NULL)
     {
         std::cout << "Starting!" << std::endl;
@@ -67,9 +80,6 @@ int main (int argc, char** argv)
             p_server_start (&Data, callback);
             cerr << "The server is stopped! Press <ENTER> to exit the program..."  << endl;
             cin.get();
-        } else {
-            cerr << "Failed to obtain a pointer to the \"start\" function!" << endl;
-        }
     } else {
       cerr << "The server has not started!" << endl;
     }
