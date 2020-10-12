@@ -264,7 +264,12 @@ static void read_html_file_and_prepare_response( char *file_name, char *html_sou
                 if( response.body_allocated != nullptr ) {
                     fin.read(response.body_allocated, file_size); 	// Adding the file to serve
                     if( fin.gcount() == file_size ) {
-                        response.header = _http_ok_header;
+                        if( is_ext_json(file_path) ) {  // All json text is nothing but an "utf-8" text
+                            snprintf( _http_header_buf, _http_header_buf_size, _http_ok_json_header_template, file_size );
+                        } else {
+                            snprintf( _http_header_buf, _http_header_buf_size, _http_ok_header_template, file_size );
+                        }
+                        response.header = _http_header_buf;
                         response.body_len = file_size; 
                         error = FileServingErr::ok;
                     } 

@@ -1,4 +1,3 @@
-//#define __DEV__ 1
 #include "server.h"
 
 static int _listen_socket = INVALID_SOCKET;
