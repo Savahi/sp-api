@@ -9,18 +9,10 @@ bool is_html_request( char *uri );
 
 void parseJSON(char *b, char *user, int max_user, char *pass, int max_pass, char *sess_id, int max_sess_id, char *id, int max_id);
 
-template<class... Args>
-void error_message( Args... args ) {
-	#ifndef __DEV__
-		return;
-	#endif
-    //(std::cout << ... << args) << std::endl;
-    std::fstream log_file(
-        "C:\\Users\\lgirs\\Desktop\\papa\\spider\\server-api\\log.txt", 
-        std::fstream::out | std::fstream::app
-    );
-    if( log_file ) {
-        (log_file << ... << args) << std::endl;
-	    log_file.close();
-    }
-}
+int get_content_read( char *b, int b_len );
+
+int get_content_length( char *b, int b_len );
+
+void error_message( std::string s );
+
+

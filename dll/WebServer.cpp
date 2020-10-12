@@ -1,7 +1,8 @@
 #include <string>
 #include <iostream>
 #include <fstream>
-#include "windows.h"
+#include <windows.h>
+#include <boost/regex.hpp>
 #include "WebServer.hpp"
 
 static SERVER_DLL_START p_server_start;
@@ -19,7 +20,7 @@ int callback ( ServerData *sd ) {
     sd->sp_free_response_buf = false;
 
     if( sd->message_id == SERVER_API_LIST ) {
-        std::ifstream fin("files\\api_list.json", std::ios::in | std::ios::binary);
+        std::ifstream fin("api-json.txt", std::ios::in | std::ios::binary);
         if (fin) {
             // Reading http response body
             fin.seekg(0, std::ios::end);
@@ -34,7 +35,14 @@ int callback ( ServerData *sd ) {
             fin.close();
         }   
     } else if( sd->message_id == SERVER_API_COMMAND ) {
-        strcpy( _callback_response, "{\"error\":\"\", \"response\":\"a response\"}" );
+		boost::regex xRegEx { R"dlm(.*"command": *"graphs".*)dlm" };
+		//boost::regex xRegEx{"\\w+\\s\\w+"};
+		bool matched = boost::regex_match( std::string(sd->message), xRegEx );
+		if( matched ) {
+	        strcpy( _callback_response, "{ \"graphs\" : [ { \"name\":\"График 1\", \"array\" : [ [939600000, 888.982777777778], [940204800, 1253.44527777778], [940809600, 1386.01861111111], [941414400, 1571.91916666667], [942019200, 1901.13], [942624000, 2208.10333333333], [943228800, 3564.05805555556], [943833600, 3212.96301587302], [944438400, 3566.29009379509], [945043200, 3631.50736652237], [945648000, 3187.34841269841], [946252800, 2992.49254202408], [946857600, 3049.85439351786] ] }, { \"name\":\"График 2\", \"array\" : [ [939600000, 888.982777777778], [940204800, 1153.44527777778], [940809600, 1486.01861111111], [941414400, 1671.91916666667], [942019200, 2101.13], [942624000, 2208.10333333333], [943228800, 3564.05805555556], [943833600, 3612.96301587302], [944438400, 3666.29009379509], [945043200, 3631.50736652237], [945648000, 3487.34841269841], [946252800, 3192.49254202408], [946857600, 3149.85439351786] ] }, { \"name\":\"График 3\", \"array\" : [ [939600000, 988.982777777778], [940204800, 1253.44527777778], [940809600, 1686.01861111111], [941414400, 1671.91916666667], [942019200, 1701.13], [942624000, 2108.10333333333], [943228800, 3564.05805555556], [943833600, 2912.96301587302], [944438400, 2966.29009379509], [945043200, 2531.50736652237], [945648000, 2487.34841269841], [946252800, 2192.49254202408], [946857600, 2149.85439351786] ] } ] }" );
+		} else {
+	        strcpy( _callback_response, "{\"error\":\"\", \"response\":\"a response\"}" );
+		}
         sd->sp_response_buf_size = strlen(_callback_response);
         _callback_error_code = 0;
     }

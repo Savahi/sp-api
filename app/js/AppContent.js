@@ -2,13 +2,14 @@ import React, { Component } from 'react';
 import AppAPI from './AppAPI';
 import AppRequest from './AppRequest';
 import styles from './../css/appcontent.css'; 
+import Settings from './Settings';
 
 class AppContent extends React.Component {
 	constructor(props) {
 		super(props);
 		this.state = { 
 			requestText: '',
-			loggedInAs: { user:null, sessId:null },
+            loggedInAs: { user:null, sessId:null },
 		};
 
 		this.updateRequestText = this.updateRequestText.bind(this);
@@ -20,26 +21,17 @@ class AppContent extends React.Component {
 		this.setState( { requestText: e.target.value } ); 
 	}
 	
-	updateRequestText( requestText ) {
+	updateRequestText( requestJSON ) {
 		if( this.state.loggedInAs.user !== null && this.state.loggedInAs.sessId !== null ) {
-		    let o = null;
-			try {
-				let o = JSON.parse( requestText );
-				if( 'user' in o ) {
-					o.user = this.state.loggedInAs.user;	
-				}
-				if( 'sess_id' in o ) {
-					o.sess_id = this.state.loggedInAs.sessId;
-				}
-			} 
-			catch(e) { 
-				o = null; 
+			if( 'user' in requestJSON ) {
+				requestJSON.user = this.state.loggedInAs.user;	
 			}
-			if( o !== null ) {
-				requestText = JSON.stringify(o);
+			if( 'sessId' in requestJSON ) {
+				requestJSON.sessId = this.state.loggedInAs.sessId;
 			}
 		}
-    	this.setState( state => ( { requestText: requestText } ) );
+        let requestText = JSON.stringify(requestJSON);
+    	this.setState( { requestText: requestText } );
 	}
 
 	updateLoggedInAs( user, sessId ) {
@@ -55,10 +47,11 @@ class AppContent extends React.Component {
 	render() {
 		return (
 			<div className={styles.container}>
-				<AppRequest updateLoggedInAs={this.updateLoggedInAs} loggedInAs={this.state.loggedInAs} 
-					requestText={this.state.requestText} requestTextareaChanged={this.requestTextareaChanged} />
-				<h4>API List</h4>
-				<AppAPI updateRequestText={this.updateRequestText}/>
+                <AppRequest lang={this.props.lang} updateLoggedInAs={this.updateLoggedInAs} 
+                    loggedInAs={this.state.loggedInAs} requestText={this.state.requestText} 
+                    requestTextareaChanged={this.requestTextareaChanged} />
+				<h4>{Settings.texts.apiList[this.props.lang]}</h4>
+				<AppAPI lang={this.props.lang} updateRequestText={this.updateRequestText}/>
 			</div>
 		);
 	}

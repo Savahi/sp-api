@@ -43,7 +43,7 @@
 	padding:4px 4px 4px 24px;
 }
 
-.APIItemId {
+.APIItemCommand {
 	color: #2f2f2f;
 	font-size: 110%;
 	font-weight: bold;
@@ -65,15 +65,29 @@
 	padding: 4px 4px 14px 0px;
 }
 
+.APIItemParametersTitle, .APIItemResultTitle {
+    font-weight: bold;
+    font-size:110%;
+    padding:12px 0px 0px 4px;
+}
 
-.APIItemSampleRequest {
+.APIItemParameters {
 	color: #5f5f5f;
 	font-style: normal;
 	padding: 4px;
-	border: 1px solid #afafaf;
-	border-radius: 4px;
-	background-color: #efefef;
-	cursor: pointer;
+}
+
+.APIItemResult {
+	color: #5f5f5f;
+	font-style: normal;
+	padding: 4px;
+}
+
+.APIItemSampleParameters, .APIItemSampleResult {
+	color: #5f5f5f;
+    font-style: normal;
+    font-family:courier;
+    padding-right:24px;
 }
 
 

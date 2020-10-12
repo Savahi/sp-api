@@ -1,7 +1,5 @@
 #pragma once
 
-#define __DEV__ 1
-
 #include <thread>
 #include <mutex>
 #include <condition_variable>

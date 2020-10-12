@@ -1,0 +1,42 @@
+//------------------------  получаем значения одного объекта из таблицы по видимым столбцам 
+
+//получаем хэндл проекта
+{"command":"openFile","fileName":"e:\\sp4\\exe\\projects\\p.001.sprj"}
+
+//получаем хэндл ресурса по коду ресурса
+{"command":"getObjectHandle","comdocHandle":"28701512","table":"Resource","code":"res"}
+
+//получаем значения ресурса
+{"command":"getObject","handle":"18701512"}
+
+
+//------------------------  получаем значения из всей таблицы всех видимых объектов по всем видимым столбцам
+
+//получаем хэндл проекта
+{"command":"openFile","fileName":"e:\\sp4\\exe\\projects\\p.001.sprj"}
+
+//получаем хэндл таблицы ресурсов по коду
+{"command":"getTableHandle","comdocHandle":"28701512","table":"Resource"}
+
+//получаем значения из таблицы
+{"command":"getTable","tableHandle":"18701512"}
+
+
+
+
+
+
+
+
+
+
+
+//получаем хэндл фазы по коду структуры и коду фазы
+{"command":"getObjectHandle","comdocHandle":"28701512","table":"GanttAct","code":"g","structCode":"s"}
+
+//получаем хэндл шаблона по коду шаблона
+{"command":"getObjectHandle","comdocHandle":"28701512","table":"ReportSpend","code":"t"}
+
+//получаем график
+{"command":"getReport","objectHandle":"29150296","templateHandle":"29150072"}
+

@@ -28,11 +28,7 @@ class AppRequest extends React.Component {
         	headers: { 'Content-Type': 'application/json', 'Origin': Settings.apiServerURL+'/' },
         	body: document.getElementById('request').value
     	};
-		let url = '/api';
-		if( Settings.apiServerURL.length > 0 ) {
-			url = Settings.apiServerURL + url;
-		} 
-		fetch(url, requestHeaders)
+		fetch(Settings.apiServerURL, requestHeaders)
 			.then( response => response.json() )
 			.then(  data => { 
 				let id = null; // Trying to retrieve id from the request made					
@@ -45,8 +41,9 @@ class AppRequest extends React.Component {
 				let separator = '--------\n';
 				let title = (id !== null && id.length > 0) ? `${separator}[${id}]\n` : `${separator}`;				
 				this.setState( { showRequestMessage:false, responseText: title + JSON.stringify(data) + '\n' + this.state.responseText } ); 
-				if( 'user' in data && 'sess_id' in data ) { 	// Just logged in?
-					this.props.updateLoggedInAs( data.user, data.sess_id );
+				if( 'user' in data || 'sess_id' in data ) { 	// Just logged in?
+                    this.props.updateLoggedInAs( ('user' in data ) ? data.user : null, 
+                        ('sessId' in data) ? data.sessId : null );
 				}
 			} )
 			.catch( e => { 
@@ -60,23 +57,23 @@ class AppRequest extends React.Component {
 		return (
 			<div className={styles.container}>
 				<div className={styles.loggedInAs}>
-					<div><b>Log in info</b>:</div>
-					<div>User:&nbsp;<span>{user}</span></div>
-					<div>Session&nbsp;Id:&nbsp;<span>{sessId}</span></div>
+					<div><b>{Settings.texts.logInInfo[this.props.lang]}</b>:</div>
+					<div>{Settings.texts.user[this.props.lang]}:&nbsp;<span>{user}</span></div>
+					<div>{Settings.texts.sessId[this.props.lang]}:&nbsp;<span>{sessId}</span></div>
 				</div>
 				<div className={styles.requestDialogContainer}>
 					<div className={styles.requestDialogSendingControlsContainer}>
 						<br/>
-						<button onClick={this.makeRequest}>Make Request</button>
+						<button onClick={this.makeRequest}>{Settings.texts.makeRequest[this.props.lang]}</button>
 					</div>
 					<div className={styles.requestDialogRequestContainer}>	
-						<b>Request</b><br/>
+						<b>{Settings.texts.request[this.props.lang]}</b><br/>
 						<textarea rows="5" id='request' value={this.props.requestText} onChange={this.props.requestTextareaChanged}></textarea>
 						{ this.state.showRequestMessage ? 
 							(<div className={styles.requestDialogRequestMessage}>{this.state.requestMessage}</div>) : null }
 					</div>
 					<div className={styles.requestDialogResponseContainer}>
-						<b>Response</b><br/>
+						<b>{Settings.texts.response[this.props.lang]}</b><br/>
 						<textarea rows="5" id='response' value={this.state.responseText} readOnly></textarea>
 					</div>
 				</div>

@@ -6,3 +6,13 @@
 	color: #efefef;
 	background-color: #4f4f4f;
 }
+
+.lang {
+    margin-right:12px;
+    background-color:#7f7f7f;
+    padding: 0px 4px 0px 4px;
+    color:#efefef;
+    border: 1px dotted white;
+    border-radius:4px;
+    cursor: pointer;
+}

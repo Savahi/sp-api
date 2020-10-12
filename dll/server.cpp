@@ -1,3 +1,4 @@
+//#define __DEV__ 1
 #include "server.h"
 
 static int _listen_socket = INVALID_SOCKET;
@@ -40,9 +41,12 @@ int start( StartServerData *ssd, callback_ptr callback ) {
 		return -1;
 	}
     if( ssd->HtmlPath != nullptr ) {
+		error_message( std::string("start(): ssd->HtmlPath = ") + ssd->HtmlPath);
 	    if( strlen(ssd->HtmlPath) >= SRV_MAX_EXE_PATH ) {
     		return -1;
         }
+	} else {
+		error_message("start(): ssd->HtmlPath not spicified!");
 	}
     _th_manager_on = true;	
 	std::thread thm(thread_manager_start);	
@@ -55,11 +59,9 @@ int start( StartServerData *ssd, callback_ptr callback ) {
 } 
 
 // ******** THE SERVER
-
-static const int _socket_request_buf_size = 1024*5000;
-static char _socket_request_buf[_socket_request_buf_size + 1];
-
-static char _html_root_path[SRV_MAX_HTML_ROOT_PATH+1]; 			// Root directory for html applications
+const int _socket_request_buf_size = 1024*5000;
+char _socket_request_buf[_socket_request_buf_size + 1];
+char _html_root_path[SRV_MAX_HTML_ROOT_PATH+1]; 			// Root directory for html applications
 
 static int server( StartServerData *ssd, callback_ptr callback )
 {
@@ -68,7 +70,7 @@ static int server( StartServerData *ssd, callback_ptr callback )
 
 	result = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (result != 0) {
-		error_message( "WSAStartup failed: ", std::to_string( result ) );
+		error_message( std::string("WSAStartup failed: ") + std::to_string( result ) );
         thread_manager_stop();
 		return result;
 	}
@@ -86,7 +88,7 @@ static int server( StartServerData *ssd, callback_ptr callback )
 
 	result = getaddrinfo(ssd->IP, ssd->Port, &hints, &addr); // Port 8000 is used
 	if (result != 0) { 		// If failed...
-		error_message( "getaddrinfo failed: ", result );
+		error_message( std::string("getaddrinfo failed: ") + std::to_string(result) );
 		WSACleanup(); // unloading  Ws2_32.dll
         thread_manager_stop();
 		return 1;
@@ -94,7 +96,7 @@ static int server( StartServerData *ssd, callback_ptr callback )
 	// Creating a socket
 	_listen_socket = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 	if (_listen_socket == INVALID_SOCKET) { 		// If failed to create a socket...
-		error_message( "Error at socket: ", WSAGetLastError() );
+		error_message( std::string("Error at socket: ") + std::to_string(WSAGetLastError()) );
 		freeaddrinfo(addr);
 		WSACleanup();
         thread_manager_stop();
@@ -104,7 +106,7 @@ static int server( StartServerData *ssd, callback_ptr callback )
 	// Binsding the socket to ip-address
 	result = bind(_listen_socket, addr->ai_addr, (int)addr->ai_addrlen);
 	if (result == SOCKET_ERROR) { 		// If failed to bind...
-		error_message( "bind failed with error: ", WSAGetLastError() );
+		error_message( std::string("bind failed with error: ") + std::to_string(WSAGetLastError()) );
 		freeaddrinfo(addr);
 		closesocket(_listen_socket);
 		WSACleanup();
@@ -114,7 +116,7 @@ static int server( StartServerData *ssd, callback_ptr callback )
 
 	// Init listening...
 	if (listen(_listen_socket, SOMAXCONN) == SOCKET_ERROR) {
-		error_message( "listen failed with error: ", WSAGetLastError() );
+		error_message( std::string("listen failed with error: ") + std::to_string(WSAGetLastError()) );
 		freeaddrinfo(addr);
 		closesocket(_listen_socket);
 		WSACleanup();
@@ -126,7 +128,6 @@ static int server( StartServerData *ssd, callback_ptr callback )
 
 	if( ssd->HtmlPath != nullptr ) { 
 		strcpy( _html_root_path, ssd->HtmlPath);
-		//strcat( _html_root_path, "\\" );
 	} else {
 		_html_root_path[0] = '\x0';
 	}
@@ -137,27 +138,56 @@ static int server( StartServerData *ssd, callback_ptr callback )
 		error_message( "accepting..." );
 		client_socket = accept(_listen_socket, NULL, NULL);
 		if (client_socket == INVALID_SOCKET) {
-    		error_message( "accept failed with error: ", WSAGetLastError() );
+    		error_message( std::string("accept failed with error: ") + std::to_string(WSAGetLastError()) );
 			break;
 		}
 
-		result = recv(client_socket, _socket_request_buf, _socket_request_buf_size, 0);
+		int bytes_read = 0;
+		int bytes_in_buffer_available = _socket_request_buf_size;
+		int content_read = -1;
+		int content_length = -1;
+		do { 
+			result = recv(client_socket, &_socket_request_buf[bytes_read], bytes_in_buffer_available, 0);
+			if( result == SOCKET_ERROR )
+				break;			
+			bytes_read += result;
+			bytes_in_buffer_available -= result;
+
+			// Trying to get the "Content-Length" value. If failed - breaking, since it's either a GET request or possibly not a valid POST request
+			if( content_length == -1 ) {
+				content_length = get_content_length( _socket_request_buf, bytes_read );
+			}
+			if( content_length == -1 ) {
+				break;
+			}			
+
+			content_read = get_content_read( _socket_request_buf, bytes_read );
+			if( content_read == -1 ) { 	// If failed to get the num. of bytes after the header - breaking
+				break;								// it's something wrong with the request
+			}
+			if( content_read == 0 ) { 	// 
+				if( content_length == 0 ) {         // If a zero length request - breaking...
+					break;
+				}					
+			} else if( content_read > 0 ) { 		// Some content has been read...
+				if( content_read == content_length ) {	// If all bytes sent are read...
+					break; 								// ... breaking
+				}										
+			}
+		} while( result > 0 && bytes_in_buffer_available > 0 );
 
 		if (result == SOCKET_ERROR) { 	// Error receiving data
 			error_message("server: recv failed...");
 			closesocket(client_socket);
-		}
-		else if (result == 0) { 		// The connection was closed by the client...
-			error_message("server: connection closed...");
-		} 
-		else if( result >= _socket_request_buf_size ) {
-			error_message("server: too longrequest: ", result );
+		} else if( !(bytes_in_buffer_available > 0) ) {
+			error_message("server: the message is too long...");
 			closesocket(client_socket);
-		}
-		else if (result > 0) { 		// Everything is ok and "result" stores data length
-			_socket_request_buf[result] = '\0';
-			error_message( "server [request]:\n", _socket_request_buf, "\nlength=", result );
-			server_response( client_socket, _socket_request_buf, result, _html_root_path, callback );
+		} else if( bytes_read == 0 ) { 	
+			error_message("server: the connection was closed by the client...");
+		} else {
+			_socket_request_buf[bytes_read] = '\0';
+			error_message( "server [request]:\n" + std::string(_socket_request_buf) + "\nlength=" + std::to_string(bytes_read) );
+			server_response( client_socket, _socket_request_buf, bytes_read, _html_root_path, callback );
 			closesocket(client_socket);
 		}
 	}
