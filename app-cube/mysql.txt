@@ -1,5 +1,0 @@
-﻿Server: sql7.freemysqlhosting.net
-Name: sql7356771
-Username: sql7356771
-Password: ZqA2VbrBgg
-Port number: 3306

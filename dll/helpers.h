@@ -13,6 +13,8 @@ int get_content_read( char *b, int b_len );
 
 int get_content_length( char *b, int b_len );
 
+bool is_ext_json( char *path );
+
 void error_message( std::string s );
 
 
