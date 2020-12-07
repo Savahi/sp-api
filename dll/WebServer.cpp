@@ -68,7 +68,11 @@ int main (int argc, char** argv)
         p_server_start = (SERVER_DLL_START) GetProcAddress (hServerDLL, "start");
 
         if (p_server_start != NULL) {
-            p_server_start (&Data, callback);
+            if( p_server_start (&Data, callback) == -1 ) {
+                cerr << "The server has NOT been started! Exiting..."  << endl;
+                FreeLibrary(hServerDLL);
+                return 0;                
+            }
             cerr << "The server has started! Press <ENTER> to stop the server..."  << endl;
             cin.get();
             Data.Message = ssd_Stop;
@@ -82,4 +86,5 @@ int main (int argc, char** argv)
       cerr << "The server has not started!" << endl;
     }
     FreeLibrary(hServerDLL);
+    return 0;
 }

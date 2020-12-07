@@ -1,10 +1,19 @@
 #include "server.h"
 
+// ******** SERVER VARIABLES
+WSADATA _wsaData; //  use Ws2_32.dll
+sockaddr_in _sock_addr;
 static int _listen_socket = INVALID_SOCKET;
+const int _socket_request_buf_size = 1024*5000;
+char _socket_request_buf[_socket_request_buf_size + 1];
+char _html_root_path[SRV_MAX_HTML_ROOT_PATH+1]; 			// Root directory for html applications
 
+
+// ******** THREAD VARIABLES
 std::condition_variable _th_manager_cond;
 std::mutex _th_manager_mtx;
 bool _th_manager_on = false;
+
 
 void thread_manager_start() {
     std::unique_lock<std::mutex> L{_th_manager_mtx};
@@ -44,8 +53,54 @@ int start( StartServerData *ssd, callback_ptr callback ) {
 	    if( strlen(ssd->HtmlPath) >= SRV_MAX_EXE_PATH ) {
     		return -1;
         }
+        strcpy( _html_root_path, ssd->HtmlPath);
 	} else {
 		error_message("start(): ssd->HtmlPath not spicified!");
+		_html_root_path[0] = '\x0';
+	}
+	strcat( _html_root_path, SRV_HTML_ROOT_DIR );
+
+    int port;
+    try {
+        port = std::stoi( ssd->Port );
+    } catch (const std::invalid_argument& ia) {
+        thread_manager_stop();
+        return -1;
+    }
+
+    _sock_addr.sin_family = AF_INET;
+    _sock_addr.sin_addr.s_addr = INADDR_ANY;
+    _sock_addr.sin_port = htons(port);
+
+	size_t result;
+
+	result = WSAStartup(MAKEWORD(2, 2), &_wsaData);
+	if (result != 0) {
+		error_message( std::string("WSAStartup failed: ") + std::to_string( result ) );
+		return -1;
+	}
+
+    _listen_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (_listen_socket == INVALID_SOCKET) {
+		error_message( std::string("getaddrinfo failed: ") + std::to_string(result) );
+		WSACleanup(); // unloading  Ws2_32.dll
+		return -1;
+    }
+
+    result = bind(_listen_socket, (SOCKADDR *) &_sock_addr, sizeof (_sock_addr));
+	if (result == SOCKET_ERROR) { 		// If failed to bind...
+		error_message( std::string("bind failed with error: ") + std::to_string(WSAGetLastError()) );
+		closesocket(_listen_socket);
+		WSACleanup();
+		return -1;
+	}
+
+	// Init listening...
+	if (listen(_listen_socket, SOMAXCONN) == SOCKET_ERROR) {
+		error_message( std::string("listen failed with error: ") + std::to_string(WSAGetLastError()) );
+		closesocket(_listen_socket);
+		WSACleanup();
+		return -1;
 	}
 
     _th_manager_on = true;	
@@ -58,71 +113,11 @@ int start( StartServerData *ssd, callback_ptr callback ) {
 	return 0;
 } 
 
-// ******** THE SERVER
-const int _socket_request_buf_size = 1024*5000;
-char _socket_request_buf[_socket_request_buf_size + 1];
-char _html_root_path[SRV_MAX_HTML_ROOT_PATH+1]; 			// Root directory for html applications
 
 static int server( StartServerData *ssd, callback_ptr callback )
 {
-	WSADATA wsaData; //  use Ws2_32.dll
-	size_t result;
-
-    int port;
-    try {
-        port = std::stoi( ssd->Port );
-    } catch (const std::invalid_argument& ia) {
-        thread_manager_stop();
-        return 1;
-    }
-
-    sockaddr_in sock_addr;
-    sock_addr.sin_family = AF_INET;
-    sock_addr.sin_addr.s_addr = INADDR_ANY;
-    sock_addr.sin_port = htons(port);
-
-	result = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (result != 0) {
-		error_message( std::string("WSAStartup failed: ") + std::to_string( result ) );
-        thread_manager_stop();
-		return result;
-	}
-
-    _listen_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (_listen_socket == INVALID_SOCKET) {
-		error_message( std::string("getaddrinfo failed: ") + std::to_string(result) );
-		WSACleanup(); // unloading  Ws2_32.dll
-        thread_manager_stop();
-		return 1;
-    }
-
-    result = bind(_listen_socket, (SOCKADDR *) &sock_addr, sizeof (sock_addr));
-	if (result == SOCKET_ERROR) { 		// If failed to bind...
-		error_message( std::string("bind failed with error: ") + std::to_string(WSAGetLastError()) );
-		closesocket(_listen_socket);
-		WSACleanup();
-        thread_manager_stop();
-		return 1;
-	}
-
-
-	// Init listening...
-	if (listen(_listen_socket, SOMAXCONN) == SOCKET_ERROR) {
-		error_message( std::string("listen failed with error: ") + std::to_string(WSAGetLastError()) );
-		closesocket(_listen_socket);
-		WSACleanup();
-        thread_manager_stop();
-		return 1;
-	}
-
+    size_t result;    
 	int client_socket = INVALID_SOCKET;
-
-	if( ssd->HtmlPath != nullptr ) { 
-		strcpy( _html_root_path, ssd->HtmlPath);
-	} else {
-		_html_root_path[0] = '\x0';
-	}
-	strcat( _html_root_path, SRV_HTML_ROOT_DIR );
 
 	for (;;) {
 		// Accepting an incoming connection...
