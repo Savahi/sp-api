@@ -55,7 +55,7 @@ int main (int argc, char** argv)
 {
     HINSTANCE hServerDLL;
 
-    Data.IP = "127.0.0.1";
+	Data.IP = "127.0.0.1";
     Data.Port = "8080";
     Data.ExePath = nullptr;
     Data.HtmlPath = "html\\";

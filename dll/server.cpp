@@ -47,6 +47,7 @@ int start( StartServerData *ssd, callback_ptr callback ) {
 	} else {
 		error_message("start(): ssd->HtmlPath not spicified!");
 	}
+
     _th_manager_on = true;	
 	std::thread thm(thread_manager_start);	
 	thm.detach();
@@ -67,6 +68,19 @@ static int server( StartServerData *ssd, callback_ptr callback )
 	WSADATA wsaData; //  use Ws2_32.dll
 	size_t result;
 
+    int port;
+    try {
+        port = std::stoi( ssd->Port );
+    } catch (const std::invalid_argument& ia) {
+        thread_manager_stop();
+        return 1;
+    }
+
+    sockaddr_in sock_addr;
+    sock_addr.sin_family = AF_INET;
+    sock_addr.sin_addr.s_addr = INADDR_ANY;
+    sock_addr.sin_port = htons(port);
+
 	result = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (result != 0) {
 		error_message( std::string("WSAStartup failed: ") + std::to_string( result ) );
@@ -74,49 +88,27 @@ static int server( StartServerData *ssd, callback_ptr callback )
 		return result;
 	}
 
-	struct addrinfo* addr = NULL; // holds socket ip etc
-
-	// To be initialized with constants and values...
-	struct addrinfo hints;
-	ZeroMemory(&hints, sizeof(hints));
-
-	hints.ai_family = AF_INET; // AF_INET - using net to work with socket
-	hints.ai_socktype = SOCK_STREAM; // A socket of a "stream" type
-	hints.ai_protocol = IPPROTO_TCP; // TCP protocol
-	hints.ai_flags = AI_PASSIVE; // The socket should take incoming connections
-
-	result = getaddrinfo(ssd->IP, ssd->Port, &hints, &addr); // Port 8000 is used
-	if (result != 0) { 		// If failed...
+    _listen_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (_listen_socket == INVALID_SOCKET) {
 		error_message( std::string("getaddrinfo failed: ") + std::to_string(result) );
 		WSACleanup(); // unloading  Ws2_32.dll
         thread_manager_stop();
 		return 1;
-	}
-	// Creating a socket
-	_listen_socket = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
-	if (_listen_socket == INVALID_SOCKET) { 		// If failed to create a socket...
-		error_message( std::string("Error at socket: ") + std::to_string(WSAGetLastError()) );
-		freeaddrinfo(addr);
-		WSACleanup();
-        thread_manager_stop();
-		return 1;
-	}
+    }
 
-	// Binsding the socket to ip-address
-	result = bind(_listen_socket, addr->ai_addr, (int)addr->ai_addrlen);
+    result = bind(_listen_socket, (SOCKADDR *) &sock_addr, sizeof (sock_addr));
 	if (result == SOCKET_ERROR) { 		// If failed to bind...
 		error_message( std::string("bind failed with error: ") + std::to_string(WSAGetLastError()) );
-		freeaddrinfo(addr);
 		closesocket(_listen_socket);
 		WSACleanup();
         thread_manager_stop();
 		return 1;
 	}
 
+
 	// Init listening...
 	if (listen(_listen_socket, SOMAXCONN) == SOCKET_ERROR) {
 		error_message( std::string("listen failed with error: ") + std::to_string(WSAGetLastError()) );
-		freeaddrinfo(addr);
 		closesocket(_listen_socket);
 		WSACleanup();
         thread_manager_stop();
@@ -197,7 +189,6 @@ static int server( StartServerData *ssd, callback_ptr callback )
 	    closesocket(_listen_socket);
         _listen_socket = INVALID_SOCKET;
     }
-	freeaddrinfo(addr);
 	WSACleanup();
     thread_manager_stop();
 	return 0;
