@@ -69,7 +69,7 @@ int start( StartServerData *ssd, callback_ptr callback ) {
     }
 
     _sock_addr.sin_family = AF_INET;
-    _sock_addr.sin_addr.s_addr = INADDR_ANY;
+    _sock_addr.sin_addr.s_addr = INADDR_ANY; // inet_addr("127.0.0.1");
     _sock_addr.sin_port = htons(port);
 
 	size_t result;

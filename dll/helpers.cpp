@@ -6,13 +6,14 @@
 
 void error_message( std::string s ) {
     return;
-    //std::fstream log_file( "C:\\Users\\lgirs\\Desktop\\papa\\spider\\server-api\\dll\\log.txt", std::fstream::out | std::fstream::app );
-    //if( log_file ) {
-    //  log_file << s << std::endl;
-    //  log_file.close();
-    //}
+    /*
+    std::fstream log_file( "C:\\log.txt", std::fstream::out | std::fstream::app );
+    if( log_file ) {
+      log_file << s << std::endl;
+      log_file.close();
+    }
+    */
 }
-
 
 
 void mimeSetType(char *fn, char *mime_buf, int mime_buf_size) {

@@ -68,8 +68,9 @@ int main (int argc, char** argv)
         p_server_start = (SERVER_DLL_START) GetProcAddress (hServerDLL, "start");
 
         if (p_server_start != NULL) {
-            if( p_server_start (&Data, callback) == -1 ) {
-                cerr << "The server has NOT been started! Exiting..."  << endl;
+            int status = p_server_start (&Data, callback);
+            if( status < 0 ) {
+                cerr << "The server has NOT been started (" << status << ")! Exiting..."  << endl;
                 FreeLibrary(hServerDLL);
                 return 0;                
             }
